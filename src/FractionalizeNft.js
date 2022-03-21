@@ -88,6 +88,7 @@ const createFractionalVault = async (event) => {
 
   console.log("Success!");
   setMessages((messages) => [...messages, "Success!"]);
+  setLoading(false);
   }
 };
 
