@@ -26,14 +26,12 @@ const Navigationbar = (props) => {
   return (
     <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark">
       <Container>
-        <Navbar.Brand href="/">Solana Gallery</Navbar.Brand>
+        <Navbar.Brand href="/">Solana FNFT</Navbar.Brand>
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="me-auto">
             <Nav.Link href="/">Home</Nav.Link>
             <Nav.Link href="/create">Create</Nav.Link>
-            <Nav.Link href="/fragment">Fragment</Nav.Link>
-            <Nav.Link href="/sale">Sale</Nav.Link>
           </Nav>
           <Nav>
             <DropdownButton

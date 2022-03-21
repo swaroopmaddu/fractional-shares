@@ -111,10 +111,8 @@ function CreateArt(props) {
         });
         console.log(_nftResponse);
         await connection.confirmTransaction(_nftResponse.txId);
-        alert("NFT created successfully");
         setNFTcreateProgress(100);
-        
-          
+        alert("NFT created successfully");
     };
 
     return (
@@ -222,7 +220,7 @@ function CreateArt(props) {
           <Col xs="12" md="12" lg="6">
             <Row>
               <Col>
-                <ProgressBar now={nftCreateProgress * 20} />
+                <ProgressBar now={nftCreateProgress} />
               </Col>
             </Row>
           </Col>

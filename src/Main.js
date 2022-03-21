@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './index.css';
 import App from './App';
 import NavigationBar from "./navbar/NavigationBar";
@@ -20,7 +20,6 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import Footer from './navbar/footer';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import FractionalizeNft from './FractionalizeNft';
-import Sale from './Sale';
 import CreateArt from './Create';
 
 
@@ -84,7 +83,6 @@ const Main = () => {
                   element={<CreateArt endpoint={endpoint} />}
                 />
                 <Route exact path="/fragment" element={<FractionalizeNft />} />
-                <Route exact path="/sale" element={<Sale />} />
               </Routes>
             </BrowserRouter>
 
