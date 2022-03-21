@@ -1,0 +1,132 @@
+{
+    "key": 3,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "fractionMint": "4PdiQQ2AVG77TzkGnhQz26zZi9WUBBjag5rS98wtQGiu",
+    "authority": "DVcjkvnCuV59RpxxrSbnxHK9rAgfaVriXK3NX51eiv3i",
+    "fractionTreasury": "EqMErY5FXaLeupHddZjsB8AUxM3SGWXYWnTvUgLKL3mM",
+    "redeemTreasury": "97jt2Un5DnpBTtL2fPznQd5DyhK6CDzbiQtabeahhD5d",
+    "allowFurtherShareCreation": 0,
+    "pricingLookupAddress": "6BsiuFeLdjTAs3XRhAaANpnvVYHC5g6tFmhciq92ysSx",
+    "tokenTypeCount": 0,
+    "state": 1,
+    "lockedPricePerShare": "00"
+}
+
+5mXAT22rcgR2NoSoiX3MoTDkFNX4jfksGwYBW6GPBHm8
+
+   async function startSale(){
+      const vault = new PublicKey(vaultId);
+      //load vault
+      const vaultResponse = (await Vault.load(connection, vault)).data;
+      console.log(vaultResponse);
+      //param 2 & 3
+      const tokenMintAccountPubkey = new PublicKey(vaultResponse.fractionMint);
+      const largestAccounts = await connection.getTokenLargestAccounts(
+        tokenMintAccountPubkey
+      );
+      const sellerTokenAccountPubkey = new PublicKey(largestAccounts.value[0].address.toBase58());
+
+      
+      const createTempTokenAccountIx = SystemProgram.createAccount({
+        fromPubkey: publicKey,
+        newAccountPubkey: tempTokenAccountKeypair.publicKey,
+        lamports: await connection.getMinimumBalanceForRentExemption(
+          AccountLayout.span
+        ),
+        space: AccountLayout.span,
+        programId: TOKEN_PROGRAM_ID,
+      });
+
+      const initTempTokenAccountIx = Token.createInitAccountInstruction(
+        TOKEN_PROGRAM_ID,
+        tokenMintAccountPubkey,
+        tempTokenAccountKeypair.publicKey,
+        publicKey
+      );
+
+      const transferTokenToTempTokenAccountIx = Token.createTransferInstruction(
+        TOKEN_PROGRAM_ID,
+        sellerTokenAccountPubkey,
+        tempTokenAccountKeypair.publicKey,
+        publicKey,
+        [],
+        amountOfTokenWantToSale
+      );
+
+      const tokenSaleProgramAccountKeypair = new Keypair();
+      const createTokenSaleProgramAccountIx = SystemProgram.createAccount({
+        fromPubkey: publicKey,
+        newAccountPubkey: tokenSaleProgramAccountKeypair.publicKey,
+        lamports: await connection.getMinimumBalanceForRentExemption(
+          TokenSaleAccountLayout.span
+        ),
+        space: TokenSaleAccountLayout.span,
+        programId: tokenSaleProgramId,
+      });
+
+      const initTokenSaleProgramIx = new TransactionInstruction({
+        programId: tokenSaleProgramId,
+        keys: [
+          createAccountInfo(publicKey, true, false),
+          createAccountInfo(tempTokenAccountKeypair.publicKey, false, true),
+          createAccountInfo(
+            tokenSaleProgramAccountKeypair.publicKey,
+            false,
+            true
+          ),
+          createAccountInfo(SYSVAR_RENT_PUBKEY, false, false),
+          createAccountInfo(TOKEN_PROGRAM_ID, false, false),
+        ],
+        data: Buffer.from(
+          Uint8Array.of(
+            instruction,
+            ...new BN(swapSolAmount).toArray("le", 8),
+            ...new BN(swapTokenAmount).toArray("le", 8)
+          )
+        ),
+      });
+
+      let blockhash = (await connection.getLatestBlockhash("finalized"))
+        .blockhash;
+
+      console.log(tokenSaleProgramAccountKeypair.publicKey.toBase58());
+      console.log(tempTokenAccountKeypair.publicKey.toBase58());
+
+      console.log("Send transaction...\n");
+      let tx = new Transaction({
+        recentBlockhash: blockhash,
+        feePayer: publicKey,
+      }).add(
+        createTempTokenAccountIx,
+        initTempTokenAccountIx,
+        transferTokenToTempTokenAccountIx,
+        createTokenSaleProgramAccountIx,
+        initTokenSaleProgramIx
+      );
+      tx = await signTransaction(tx);
+      tx.partialSign(tokenSaleProgramAccountKeypair);
+      tx.partialSign(tempTokenAccountKeypair);
+      
+      try {
+          await connection.sendRawTransaction(tx.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: "confirmed",
+            });
+            console.log("Transaction sent!");
+            console.log("Sale Started!");
+      } catch (e) {
+        console.log(e);
+      }
+
+      //wait block update
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+    TOKEN_SALE_PROGRAM_ACCOUNT_PUBKEY =
+      tokenSaleProgramAccountKeypair.publicKey;
+    TEMP_TOKEN_ACCOUNT_PUBKEY = tempTokenAccountKeypair.publicKey;
+
+
+  console.log("Sale Started!");
+  console.log(TOKEN_SALE_PROGRAM_ACCOUNT_PUBKEY);
+  console.log(TEMP_TOKEN_ACCOUNT_PUBKEY);
+
+}

@@ -1,0 +1,145 @@
+import {Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction, TransactionInstruction} from '@solana/web3.js';
+import {Vault} from '@metaplex-foundation/mpl-token-vault';
+import {
+  AccountLayout,
+  TOKEN_PROGRAM_ID, Token,
+} from '@solana/spl-token';
+import {
+  TokenSaleAccountLayout,
+  tokenSaleProgramId,
+  createAccountInfo,
+} from './helpers';
+import BN from 'bn.js';
+
+export async function startSale(
+    vaultId,
+    connection,
+    publicKey,
+    amountOfTokenWantToSale,
+    signTransaction,
+) {
+  const tempTokenAccountKeypair = new Keypair();
+  const instruction = 0; // instruction 0 is for start sale
+  const swapSolAmount = 1;
+  const swapTokenAmount = 10;
+  amountOfTokenWantToSale = parseInt(amountOfTokenWantToSale);
+  const vault = new PublicKey(vaultId);
+
+  // load vault
+  const vaultResponse = (await Vault.load(connection, vault)).data;
+  console.log(vaultResponse);
+
+  const tokenMintAccountPubkey = new PublicKey(vaultResponse.fractionMint);
+  const largestAccounts = await connection.getTokenLargestAccounts(
+      tokenMintAccountPubkey,
+  );
+  const sellerTokenAccountPubkey = new PublicKey(
+      largestAccounts.value[0].address.toBase58(),
+  );
+
+  const createTempTokenAccountIx = SystemProgram.createAccount({
+    fromPubkey: publicKey,
+    newAccountPubkey: tempTokenAccountKeypair.publicKey,
+    lamports: await connection.getMinimumBalanceForRentExemption(
+        AccountLayout.span,
+    ),
+    space: AccountLayout.span,
+    programId: TOKEN_PROGRAM_ID,
+  });
+  console.log('createTempTokenAccountIx');
+  console.log(createTempTokenAccountIx);
+
+  const initTempTokenAccountIx = Token.createInitAccountInstruction(
+      TOKEN_PROGRAM_ID,
+      tokenMintAccountPubkey,
+      tempTokenAccountKeypair.publicKey,
+      publicKey,
+  );
+  console.log('initTempTokenAccountIx');
+  console.log(initTempTokenAccountIx);
+
+  const transferTokenToTempTokenAccountIx = Token.createTransferInstruction(
+      TOKEN_PROGRAM_ID,
+      sellerTokenAccountPubkey,
+      tempTokenAccountKeypair.publicKey,
+      publicKey,
+      [],
+      amountOfTokenWantToSale,
+  );
+  console.log('transferTokenToTempTokenAccountIx');
+  console.log(transferTokenToTempTokenAccountIx);
+
+  const tokenSaleProgramAccountKeypair = new Keypair();
+
+  const createTokenSaleProgramAccountIx = SystemProgram.createAccount({
+    fromPubkey: publicKey,
+    newAccountPubkey: tokenSaleProgramAccountKeypair.publicKey,
+    lamports: await connection.getMinimumBalanceForRentExemption(
+        TokenSaleAccountLayout.span,
+    ),
+    space: TokenSaleAccountLayout.span,
+    programId: tokenSaleProgramId,
+  });
+  console.log('createTokenSaleProgramAccountIx');
+  console.log(createTokenSaleProgramAccountIx);
+
+  const initTokenSaleProgramIx = new TransactionInstruction({
+    programId: tokenSaleProgramId,
+    keys: [
+      createAccountInfo(publicKey, true, false),
+      createAccountInfo(tempTokenAccountKeypair.publicKey, false, true),
+      createAccountInfo(tokenSaleProgramAccountKeypair.publicKey, false, true),
+      createAccountInfo(SYSVAR_RENT_PUBKEY, false, false),
+      createAccountInfo(TOKEN_PROGRAM_ID, false, false),
+    ],
+
+    data: Buffer.from(
+        Uint8Array.of(
+            instruction,
+            ...new BN(swapSolAmount).toArray('le', 8),
+            ...new BN(swapTokenAmount).toArray('le', 8),
+        ),
+    ),
+  });
+  console.log('initTokenSaleProgramIx');
+  console.log(initTokenSaleProgramIx);
+
+  const blockhash = (await connection.getLatestBlockhash('finalized'))
+      .blockhash;
+
+  console.log(tokenSaleProgramAccountKeypair.publicKey.toBase58());
+  console.log(tempTokenAccountKeypair.publicKey.toBase58());
+
+  console.log('Send transaction...\n');
+  let tx = new Transaction({
+    recentBlockhash: blockhash,
+    feePayer: publicKey,
+  }).add(
+      createTempTokenAccountIx,
+      initTempTokenAccountIx,
+      transferTokenToTempTokenAccountIx,
+      createTokenSaleProgramAccountIx,
+      initTokenSaleProgramIx,
+  );
+  tx = await signTransaction(tx);
+  tx.partialSign(tokenSaleProgramAccountKeypair);
+  tx.partialSign(tempTokenAccountKeypair);
+
+  try {
+    await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+    console.log('Transaction sent!');
+    console.log('Sale Started!');
+  } catch (e) {
+    console.log(e);
+  }
+
+  // wait block update
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return ({
+    tokenSaleProgramAccountPublickey: tokenSaleProgramAccountKeypair.publicKey.toBase58(),
+    tempTokenAccountPublicKey: tempTokenAccountKeypair.publicKey.toBase58(),
+  });
+}
