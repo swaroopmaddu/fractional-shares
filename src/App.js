@@ -6,6 +6,7 @@ import { Col, Row, Button, Form, Card } from "react-bootstrap";
 import AlertDismissible from './alert/alertDismissible';
 import { useNavigate } from 'react-router-dom';
 import { Connection, PublicKey } from '@solana/web3.js';
+import {getHolders} from './utils/helpers';
 
 function App(props) {
   const { publicKey } = useWallet();
@@ -105,12 +106,12 @@ function App(props) {
     console.log(tokenAccount);
     console.log(mint);
     navigate("/fragment", {
-      state:{
-          mint,
-          tokenAccount,
-          image,
-          connection: connection
-        },
+      state: {
+        mint,
+        tokenAccount,
+        image,
+        connection: connection,
+      },
     });
 
   }
@@ -135,6 +136,7 @@ function App(props) {
             {" "}
             Get NFTs from {props.title}{" "}
           </Button>
+
         </Col>
 
         <Col lg="2"></Col>

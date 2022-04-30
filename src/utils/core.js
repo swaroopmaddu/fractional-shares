@@ -1,4 +1,4 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import * as metaplex from "@metaplex/js";
 import {
   AccountLayout,
@@ -10,6 +10,7 @@ import {
   WithdrawSharesFromTreasury,
 } from "@metaplex-foundation/mpl-token-vault";
 import { pdaForVault } from "./helpers";
+import { sendSignedTransaction} from './transactions_helper';
 
 export async function createAndAddNFTtoVault (setLoading,connection,wallet,setMessages,myNfts) {
   setLoading(true);
@@ -17,13 +18,13 @@ export async function createAndAddNFTtoVault (setLoading,connection,wallet,setMe
   let walletAdapter = wallet.adapter;
 
   // 1. Create a new External Price Account
-  const { externalPriceAccount, txId } =
-    await metaplex.actions.createExternalPriceAccount({
-      connection,
-      wallet: walletAdapter,
-    });
+    const { externalPriceAccount, txId } =
+      await metaplex.actions.createExternalPriceAccount({
+        connection,
+        wallet: walletAdapter,
+      });
 
-  await connection.confirmTransaction(txId);
+    await connection.confirmTransaction(txId);
   console.log("Step1: externalPriceAccount created");
    setMessages( [
     "Step1: externalPriceAccount created",
@@ -224,3 +225,129 @@ export async function withdrawShares(
     console.error(e);
   }
 };
+
+
+export async function withdrawMyShares(
+  vaultId,
+  numberOfShares,
+  connection,
+  publicKey,
+  signTransaction,
+  sendTransaction,
+  setMessages
+) {
+  let instructionsSet = [];
+
+  //? Step1: Transaction for activating the vault
+  const vault = new PublicKey(vaultId);
+  const result = await Vault.load(connection, vault);
+  const vaultData = result.data;
+
+  const fractionMint = new PublicKey(vaultData.fractionMint);
+  const fractionTreasury = new PublicKey(vaultData.fractionTreasury);
+  const fractionMintAuthority = await pdaForVault(vault);
+
+  const feePayer = publicKey;
+  let blockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+
+  let options = {
+    feePayer: feePayer,
+    recentBlockhash: blockhash,
+  };
+  const vaultParams = {
+    vault,
+    fractionMint,
+    fractionTreasury,
+    fractionMintAuthority,
+    vaultAuthority: publicKey,
+    numberOfShares,
+  };
+  let tx = new metaplex.programs.vault.ActivateVault(options, vaultParams);
+  console.log(tx);
+  instructionsSet.push(...tx.instructions);
+  //TODO add required signature
+
+  //? Step2 : Create token account
+  //new account
+  const newTokenAccount = Keypair.generate();
+  const newTokenAccountPublicKey = newTokenAccount.publicKey;
+
+  const rentExempt = await connection.getMinimumBalanceForRentExemption(
+    AccountLayout.span
+  );
+
+  blockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+
+  options = {
+    feePayer: feePayer,
+    recentBlockhash: blockhash,
+  };
+
+  //load token account
+  const createTokenTx = new metaplex.transactions.CreateTokenAccount(options, {
+    newAccountPubkey: newTokenAccountPublicKey,
+    lamports: rentExempt,
+    mint: fractionMint,
+    owner: publicKey,
+  });
+
+  //TODO add required signature
+  console.log(createTokenTx);
+  instructionsSet.push(...createTokenTx.instructions);
+
+  //? Step3 : Withdraw shares from treasury
+  // options for minting
+  blockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+
+  options = {
+    feePayer: feePayer,
+    recentBlockhash: blockhash,
+  };
+
+  const vaultAuthority = publicKey;
+  const destination = newTokenAccount.publicKey;
+  console.log(vault);
+  const params = {
+    vault,
+    destination,
+    fractionTreasury,
+    vaultAuthority,
+    transferAuthority: fractionMintAuthority,
+    numberOfShares,
+  };
+
+  let tx3 = new WithdrawSharesFromTreasury(options, params);
+  instructionsSet.push(...tx3.instructions);
+
+  blockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+  //? Step4 : add all instructions to a transaction
+  const transaction = new Transaction();
+
+  instructionsSet.forEach((instruction) => {
+    transaction.add(instruction);
+  });
+
+  transaction.feePayer = feePayer;
+  transaction.recentBlockhash = blockhash;
+
+  console.log(transaction);
+
+  transaction.partialSign(newTokenAccount);
+  const signedTransaction = await signTransaction(transaction);
+  console.log(signedTransaction);
+  //? Step5 : send the transaction
+  const signedTxnPromise = sendSignedTransaction({
+    connection: connection,
+    signedTransaction: signedTransaction,
+  });
+  signedTxnPromise
+    .then(({ txid }) => {
+      console.log("Success tx num", txid);
+    })
+    .catch(() => {
+      console.log("Failed tx num");
+    });
+  return {
+    newTokenAccount
+  };
+}

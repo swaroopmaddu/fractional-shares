@@ -21,6 +21,7 @@ import Footer from './navbar/footer';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import FractionalizeNft from './FractionalizeNft';
 import CreateArt from './Create';
+import CreateAuction from './createAuction';
 
 
 // Default styles that can be overridden by your app
@@ -83,6 +84,7 @@ const Main = () => {
                   element={<CreateArt endpoint={endpoint} />}
                 />
                 <Route exact path="/fragment" element={<FractionalizeNft />} />
+                <Route exact path="/sale" element={<CreateAuction />} />
               </Routes>
             </BrowserRouter>
 

@@ -1,94 +1,39 @@
 import { Fragment, useRef, useState } from "react";
-import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey, } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useLocation } from "react-router-dom";
 import { Col, Form, Row, Button, Image, Alert } from "react-bootstrap";
-import {
-  getExternalPriceTransaction,
-  createVaultTransactions,
-  getNFTSAddToVaultInstructions,
-} from "./utils/create_vault";
-import {sendTransactions} from './utils/transactions_helper';
+import startAuction from "./utils/startAuction";
 
-function FractionalizeNft() {
-  /*
-      tokenMint is the publicKey of the NFT
-      tokenAccount is the publicKey of the tokenAccount that owns the NFT
-  */
+function CreateAuction() {
+
   const params = useLocation();
   const numRef = useRef();
 
-  const [vaultId, setVaultId] = useState("");
-  const [step,setStep] = useState(0);
+  const [step, setStep] = useState(0);
   const [messages, setMessages] = useState([]);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
 
-    const { publicKey, wallet, sendTransaction, signTransaction } = useWallet();
-
-    const connection = new Connection(clusterApiUrl("devnet"));
-  
-    const myNfts = [
+  const myNfts = [
     {
       tokenAccount: new PublicKey(params.state.tokenAccount),
       tokenMint: new PublicKey(params.state.mint),
       amount: new BN(1),
-    }
+    },
   ];
 
-const createFractionalVault = async (event) => {
-  event.preventDefault();
-    const walletAdapter = wallet.adapter;
-
-  let {
-    externalPriceAccount,
-    priceMint,
-    signers: epaSigners,
-    instructions: epaInstructions,
-  } = await getExternalPriceTransaction(connection, walletAdapter);
-
-  let {
-    vault,
-    fractionMint,
-    redeemTreasury,
-    fractionTreasury,
-    instructions: createVaultInstructions,
-    signers: createVaultSigners,
-  } = await createVaultTransactions(connection, externalPriceAccount, wallet.adapter);
-
-
-  let { instructions: addToVaultInstructions, signers: addToVaultSigners } =
-    await getNFTSAddToVaultInstructions({
-      connection,
-      vault,
-      wallet: walletAdapter,
-      listOfNFTs: myNfts
-    });
-
-
-  let instructionSet = [
-    epaInstructions,
-    createVaultInstructions,
-    addToVaultInstructions,
+  const buttonTitle = [
+    "Start Sale",
   ];
-  let signersSet = [epaSigners, createVaultSigners, addToVaultSigners];
 
-  const result = await sendTransactions({
-    connection,
-    wallet: wallet.adapter,
-    instructionSet,
-    signersSet
-  });
+  const { publicKey, wallet, sendTransaction, signTransaction } = useWallet();
 
-  if(result){
-    console.log(vault.toBase58());
-  }
-  setVaultId(vault.toBase58());
-};
-
-
-
+  const createSale = async (event) => {
+    event.preventDefault();
+    await startAuction(myNfts, publicKey, wallet, sendTransaction, signTransaction);
+  };
 
   return (
     <Fragment>
@@ -122,15 +67,16 @@ const createFractionalVault = async (event) => {
                 You can't mint more more shares after creating your vault.
               </Form.Text>
             </Form.Group>
+
             <Button
               variant="primary"
               type="submit"
-              onClick={createFractionalVault}
+              onClick={createSale}
               style={{ width: "100%" }}
             >
-              FractionalizeNft
+              {buttonTitle[step]}
             </Button>
-            <br/>
+            <br />
             <br />
             <br />
             <br />
@@ -172,4 +118,4 @@ const createFractionalVault = async (event) => {
   );
 }
 
-export default FractionalizeNft;
+export default CreateAuction;
