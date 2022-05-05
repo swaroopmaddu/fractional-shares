@@ -10,6 +10,7 @@ import {
   getNFTSAddToVaultInstructions,
 } from "./utils/create_vault";
 import {sendTransactions} from './utils/transactions_helper';
+import { mintFractionalShares } from "./utils/mint_fnfts";
 
 function FractionalizeNft() {
   /*
@@ -20,7 +21,6 @@ function FractionalizeNft() {
   const numRef = useRef();
 
   const [vaultId, setVaultId] = useState("");
-  const [step,setStep] = useState(0);
   const [messages, setMessages] = useState([]);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,24 @@ const createFractionalVault = async (event) => {
     fractionTreasury,
     instructions: createVaultInstructions,
     signers: createVaultSigners,
+    
   } = await createVaultTransactions(connection, externalPriceAccount, wallet.adapter);
+
+
+
+  let instructionSet = [
+    epaInstructions,
+    createVaultInstructions,
+  ];
+  let signersSet = [epaSigners, createVaultSigners];
+
+  setMessages((messages) => [...messages, "Process started created"]);
+  let result = await sendTransactions({
+    connection,
+    wallet: wallet.adapter,
+    instructionSet,
+    signersSet,
+  });
 
 
   let { instructions: addToVaultInstructions, signers: addToVaultSigners } =
@@ -65,26 +82,47 @@ const createFractionalVault = async (event) => {
       wallet: walletAdapter,
       listOfNFTs: myNfts
     });
+  setMessages((messages) => [...messages, "Vault created"]);
+  
 
 
-  let instructionSet = [
-    epaInstructions,
-    createVaultInstructions,
+  instructionSet = [
     addToVaultInstructions,
   ];
-  let signersSet = [epaSigners, createVaultSigners, addToVaultSigners];
+  signersSet = [addToVaultSigners];
 
-  const result = await sendTransactions({
+  result = await sendTransactions({
     connection,
     wallet: wallet.adapter,
     instructionSet,
     signersSet
   });
 
+
   if(result){
     console.log(vault.toBase58());
+    setMessages((messages) => [...messages, "NFTs added to vault"]);
   }
   setVaultId(vault.toBase58());
+
+  const numberOfShares = new BN(numRef.current.value);  
+  const fnfts_result = await mintFractionalShares(
+    vault.toBase58(),
+    numberOfShares,
+    connection,
+    publicKey,
+    signTransaction
+  );
+
+  if (fnfts_result.success) {
+    setMessages((messages) => [
+      ...messages,
+      `Fractional NFTs minted $newTokenAccountPublicKey`,
+    ]);
+  } else {
+    setErrors((errors) => [...errors,"Fractional NFTs could not be minted"]);
+  }
+
 };
 
 

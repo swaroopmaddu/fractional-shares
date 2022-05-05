@@ -51,11 +51,7 @@ export const getExternalPriceTransaction = async (connection, wallet) => {
   };
 };
 
-export const createVaultTransactions = async (
-  connection,
-  externalPriceAccount,
-  wallet
-) => {
+export const createVaultTransactions = async ( connection, externalPriceAccount, wallet ) => {
   let instructions = [],
     signers = [];
   const accountRent = await connection.getMinimumBalanceForRentExemption(
@@ -153,12 +149,7 @@ export const createVaultTransactions = async (
 };
 ;
 
-export const getNFTSAddToVaultInstructions = async ({
-  connection,
-  vault,
-  wallet,
-  listOfNFTs,
-}) => {
+export const getNFTSAddToVaultInstructions = async ({ connection, vault, wallet, listOfNFTs, }) => {
 
   // We have to return a list of instructions, one for each NFT we want to add to the vault
   let instructions = [];
