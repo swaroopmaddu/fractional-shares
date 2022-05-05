@@ -20,12 +20,12 @@ function FractionalizeNft() {
   const params = useLocation();
   const numRef = useRef();
 
-  const [vaultId, setVaultId] = useState("");
+  
   const [messages, setMessages] = useState([]);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
 
-    const { publicKey, wallet, sendTransaction, signTransaction } = useWallet();
+    const { publicKey, wallet, signTransaction } = useWallet();
 
     const connection = new Connection(clusterApiUrl("devnet"));
   
@@ -43,16 +43,12 @@ const createFractionalVault = async (event) => {
 
   let {
     externalPriceAccount,
-    priceMint,
     signers: epaSigners,
     instructions: epaInstructions,
   } = await getExternalPriceTransaction(connection, walletAdapter);
 
   let {
     vault,
-    fractionMint,
-    redeemTreasury,
-    fractionTreasury,
     instructions: createVaultInstructions,
     signers: createVaultSigners,
     
@@ -103,8 +99,6 @@ const createFractionalVault = async (event) => {
     console.log(vault.toBase58());
     setMessages((messages) => [...messages, "NFTs added to vault"]);
   }
-  setVaultId(vault.toBase58());
-
   const numberOfShares = new BN(numRef.current.value);  
   const fnfts_result = await mintFractionalShares(
     vault.toBase58(),
