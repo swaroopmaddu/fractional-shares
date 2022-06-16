@@ -111,7 +111,7 @@ const createFractionalVault = async (event) => {
   if (fnfts_result.success) {
     setMessages((messages) => [
       ...messages,
-      `Fractional NFTs minted $newTokenAccountPublicKey`,
+      `Fractional NFTs minted`,
     ]);
   } else {
     setErrors((errors) => [...errors,"Fractional NFTs could not be minted"]);
